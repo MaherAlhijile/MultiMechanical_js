@@ -2,9 +2,7 @@
 // Imports
 // -----------------------------
 import express from "express";
-import { createServer } from "http";
 import http from 'http';
-
 import { Server } from "socket.io";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
@@ -18,8 +16,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
-// Serve static admin files
 
 // -----------------------------
 // Load environment variables
@@ -37,14 +33,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use("/admin", express.static(path.join(__dirname, "public")));
 app.use(cors({
-    origin: ["http://localhost:4000", "file://"], // Electron’s webContents uses file://
+    origin: ["http://localhost:4000", "file://"],
     methods: ["GET", "POST", "DELETE", "PUT"],
     credentials: true
 }));
 
-const io = new Server(httpServer, {
-    cors: { origin: "*" } // Allow all origins temporarily
-});
+const io = new Server(httpServer, { cors: { origin: "*" } });
 
 app.get("/admin", (req, res) => {
     res.sendFile(path.join(__dirname, "./public/admin.html"));
@@ -61,18 +55,13 @@ app.get("/auth/callback", async (req, res) => {
 
     try {
         const user = await getGoogleUser(code);
-
-        // ✅ Log email on the server
         console.log("User just signed in:", user.email);
-
-        // Redirect to Electron listener with token & user info
         res.redirect(`http://localhost:4000/auth/success?token=${user.token}&name=${user.name}&email=${user.email}`);
     } catch (err) {
         console.error("Google auth failed:", err);
         res.status(500).send("Authentication failed");
     }
 });
-
 
 // --- Fetch interfaces for a user, including device info ---
 app.get("/interfaces_by_email", async (req, res) => {
@@ -83,12 +72,11 @@ app.get("/interfaces_by_email", async (req, res) => {
         const result = await pool.query(
             `SELECT i.interface_id, i.name, i.email, i.device_code,
               d.type, d.subnet
-       FROM interfaces i
-       LEFT JOIN devices d ON i.device_code = d.connection_code
-       WHERE i.email = $1`,
+             FROM interfaces i
+             LEFT JOIN devices d ON i.device_code = d.connection_code
+             WHERE i.email = $1`,
             [email]
         );
-
         res.json(result.rows);
     } catch (err) {
         console.error("[SERVER] Error fetching interfaces:", err);
@@ -96,92 +84,52 @@ app.get("/interfaces_by_email", async (req, res) => {
     }
 });
 
-
-// -----------------------------
-// Temporary memory for sessions
-// -----------------------------
-const sessions = {};
-
 // -----------------------------
 // REST API Endpoints
 // -----------------------------
-
-// Add this somewhere before starting the server
 app.get("/ping", (req, res) => {
     res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
 });
 
-
-
+// -----------------------------
+// Device Registration
+// -----------------------------
 app.post("/api/register_device", async (req, res) => {
     const { type, ip, port, subnet, is_public } = req.body;
-
-    // Generate unique identifiers
     const deviceId = uuidv4();
     const connectionCode = Math.random().toString(36).substring(2, 10).toUpperCase();
 
     try {
-        // Optional: check if a device with the same IP+Port already exists
-        const checkResult = await pool.query(
-            `SELECT * FROM devices WHERE ip = $1 AND port = $2`,
-            [ip, port]
-        );
+        const checkResult = await pool.query(`SELECT * FROM devices WHERE ip = $1 AND port = $2`, [ip, port]);
+        if (checkResult.rows.length > 0) return res.status(400).json({ reason: "Device with this IP and port already exists" });
 
-        if (checkResult.rows.length > 0) {
-            return res.status(400).json({ reason: "Device with this IP and port already exists" });
-        }
-
-        // Insert new device into database
         const insertResult = await pool.query(
             `INSERT INTO devices (device_id, type, ip, port, subnet, is_public, connection_code)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
             [deviceId, type, ip, port, subnet, is_public, connectionCode]
         );
 
         const deviceRow = insertResult.rows[0];
-
         console.log("[SERVER] Device registered:", deviceRow);
-
-        // Emit socket event if using socket.io
         io.emit("device_registered", deviceRow);
-
-        // Return full row to frontend
         res.json(deviceRow);
-
     } catch (err) {
         console.error("[SERVER] Error registering device:", err);
         res.status(500).json({ reason: "Server error" });
     }
 });
 
-
 // -----------------------------
-// Delete device by device_id
-// -----------------------------
-// -----------------------------
-// Delete device by device_id
+// Delete device
 // -----------------------------
 app.delete("/api/delete_device/:deviceId", async (req, res) => {
     const { deviceId } = req.params;
-
     try {
-        // Check if device exists
         const result = await pool.query(`SELECT * FROM devices WHERE device_id = $1`, [deviceId]);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ reason: "Device not found" });
-        }
+        if (result.rows.length === 0) return res.status(404).json({ reason: "Device not found" });
 
-        // Delete the device
         await pool.query(`DELETE FROM devices WHERE device_id = $1`, [deviceId]);
-
-        // Disconnect device if connected
-        if (sessions[deviceId] && sessions[deviceId].socketId) {
-            const socketId = sessions[deviceId].socketId;
-            io.to(socketId).emit("device_disconnect_from_dispatcher", { deviceId });
-            delete sessions[deviceId];
-            console.log(`[DEVICE DISCONNECTED] ${deviceId} (deleted)`); // <-- log here
-            io.emit("device_disconnected", { deviceId });
-        }
+        await pool.query(`DELETE FROM sessions WHERE device_id = $1`, [deviceId]);
 
         io.emit("device_deleted", { deviceId });
         res.json({ success: true, deviceId });
@@ -190,117 +138,70 @@ app.delete("/api/delete_device/:deviceId", async (req, res) => {
         res.status(500).json({ reason: "Server error" });
     }
 });
+
+// -----------------------------
 // Register interface
-// Register interface with type and subnet
+// -----------------------------
 app.post("/api/register_interface", async (req, res) => {
     const { name, email, deviceCode } = req.body;
     const interfaceId = uuidv4();
 
     try {
-        // Check if interface already exists
-        const existing = await pool.query(
-            `SELECT * FROM interfaces WHERE email = $1 AND device_code = $2`,
-            [email, deviceCode]
-        );
-        if (existing.rows.length > 0) {
-            return res.status(400).json({ reason: "Device already registered for this user" });
-        }
+        const existing = await pool.query(`SELECT * FROM interfaces WHERE email = $1 AND device_code = $2`, [email, deviceCode]);
+        if (existing.rows.length > 0) return res.status(400).json({ reason: "Device already registered for this user" });
 
-        // Insert new interface
         const insertResult = await pool.query(
             `INSERT INTO interfaces (interface_id, name, email, device_code)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
+             VALUES ($1, $2, $3, $4) RETURNING *`,
             [interfaceId, name, email, deviceCode]
         );
-        const interfaceRow = insertResult.rows[0];
 
-        // Fetch type & subnet from devices table
-        const deviceResult = await pool.query(
-            `SELECT type, subnet FROM devices WHERE connection_code = $1`,
-            [deviceCode]
-        );
+        const interfaceRow = insertResult.rows[0];
+        const deviceResult = await pool.query(`SELECT type, subnet FROM devices WHERE connection_code = $1`, [deviceCode]);
         const deviceInfo = deviceResult.rows[0] || { type: null, subnet: null };
 
         const responseRow = { ...interfaceRow, type: deviceInfo.type, subnet: deviceInfo.subnet };
-
-        // Emit event to frontend
         io.emit("interface_registered", responseRow);
-
         res.json(responseRow);
-
     } catch (err) {
         console.error("[SERVER] Error registering interface:", err);
         res.status(500).json({ reason: "Server error" });
     }
 });
 
-
-// 2️⃣ Register device session (memory)
-app.post("/api/register_device_session", (req, res) => {
-    const { deviceId } = req.body;
-    sessions.set(deviceId, { deviceId, full: false });
-
-    console.log(`[SERVER] Device session created:`, { deviceId });
-    res.json({ deviceId, status: "half session" });
-});
-
-// 3️⃣ Register interface
-app.post("/api/register_interface", async (req, res) => {
-    const { name, email, deviceCode } = req.body;
-    const interfaceId = uuidv4();
-
+// -----------------------------
+// Register device session
+// -----------------------------
+app.post("/api/register_device_session", async (req, res) => {
+    const { deviceId, socketId } = req.body;
     try {
-        // Check if device already exists
-        const result = await pool.query(
-            `SELECT * FROM interfaces WHERE email = $1 AND device_code = $2`,
-            [email, deviceCode]
-        );
-
-        if (result.rows.length > 0) {
-            return res.status(400).json({ reason: "Device already registered for this user" });
-        }
-
         await pool.query(
-            `INSERT INTO interfaces (interface_id, name, email, device_code)
-       VALUES ($1, $2, $3, $4)`,
-            [interfaceId, name, email, deviceCode]
+            `INSERT INTO sessions (device_id, socket_id) VALUES ($1, $2)
+             ON CONFLICT (device_id) DO UPDATE SET socket_id = EXCLUDED.socket_id, updated_at = NOW()`,
+            [deviceId, socketId]
         );
-
-        console.log(`[SERVER] Interface registered:`, { interfaceId, name, email, deviceCode });
-        io.emit("interface_registered", { interfaceId, name, email, deviceCode });
-
-        res.json({ interfaceId, name, email, deviceCode });
+        console.log(`[SERVER] Device session created in DB: ${deviceId}`);
+        res.json({ deviceId, status: "registered" });
     } catch (err) {
-        console.error("[SERVER] Error registering interface:", err);
+        console.error("[SERVER] Error creating device session:", err);
         res.status(500).json({ reason: "Server error" });
     }
 });
 
-
-// 4️⃣ Delete interface
+// -----------------------------
+// Delete interface
+// -----------------------------
 app.delete("/api/delete_interface/:interfaceId", async (req, res) => {
     const { interfaceId } = req.params;
 
     try {
-        // Check if interface exists
-        const result = await pool.query(
-            `SELECT * FROM interfaces WHERE interface_id = $1`,
-            [interfaceId]
-        );
+        const result = await pool.query(`SELECT * FROM interfaces WHERE interface_id = $1`, [interfaceId]);
+        if (result.rows.length === 0) return res.status(404).json({ reason: "Interface not found" });
 
-        if (result.rows.length === 0) {
-            return res.status(404).json({ reason: "Interface not found" });
-        }
+        await pool.query(`DELETE FROM interfaces WHERE interface_id = $1`, [interfaceId]);
+        await pool.query(`UPDATE sessions SET interface_id = NULL WHERE interface_id = $1`, [interfaceId]);
 
-        // Delete interface
-        await pool.query(
-            `DELETE FROM interfaces WHERE interface_id = $1`,
-            [interfaceId]
-        );
-
-        console.log(`[SERVER] Interface deleted:`, interfaceId);
-        io.emit("interface_deleted", { interfaceId }); // notify clients
-
+        io.emit("interface_deleted", { interfaceId });
         res.json({ success: true, interfaceId });
     } catch (err) {
         console.error("[SERVER] Error deleting interface:", err);
@@ -308,23 +209,26 @@ app.delete("/api/delete_interface/:interfaceId", async (req, res) => {
     }
 });
 
+// -----------------------------
+// Register full session (device + interface)
+// -----------------------------
+app.post("/api/register_full_session", async (req, res) => {
+    const { deviceId, interfaceId } = req.body;
 
+    try {
+        const sessionResult = await pool.query(`SELECT * FROM sessions WHERE device_id = $1`, [deviceId]);
+        if (sessionResult.rows.length === 0) return res.status(404).json({ reason: "Session not found" });
 
-// 4️⃣ Register full session (device + interface)
-app.post("/api/register_full_session", (req, res) => {
-    const { deviceId, interfaceEmail } = req.body;
-    const session = sessions.get(deviceId);
+        await pool.query(
+            `UPDATE sessions SET interface_id = $1, updated_at = NOW() WHERE device_id = $2`,
+            [interfaceId, deviceId]
+        );
 
-    if (session) {
-        session.full = true;
-        session.interfaceEmail = interfaceEmail;
-        sessions.set(deviceId, session);
-
-        console.log(`[SERVER] Full session registered:`, { deviceId, interfaceEmail });
-        res.json({ deviceId, full: true });
-    } else {
-        console.warn(`[SERVER] Session not found for deviceId: ${deviceId}`);
-        res.status(404).json({ reason: "Session not found" });
+        console.log(`[SERVER] Full session registered:`, { deviceId, interfaceId });
+        res.json({ deviceId, interfaceId });
+    } catch (err) {
+        console.error("[SERVER] Error registering full session:", err);
+        res.status(500).json({ reason: "Server error" });
     }
 });
 
@@ -341,7 +245,6 @@ app.get("/admin/devices", async (req, res) => {
     }
 });
 
-
 app.get("/admin/interfaces", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM interfaces`);
@@ -352,99 +255,204 @@ app.get("/admin/interfaces", async (req, res) => {
     }
 });
 
-app.get("/admin/sessions", (req, res) => {
-    res.json(Array.from(sessions.values()));
+app.get("/admin/sessions", async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT * FROM sessions`);
+        res.json(result.rows);
+    } catch (err) {
+        console.error("[SERVER] Error fetching sessions:", err);
+        res.status(500).json({ reason: "Server error" });
+    }
 });
 
-app.get("/admin/session/:deviceId", (req, res) => {
-    const session = sessions.get(req.params.deviceId);
-    if (session) res.json(session);
-    else res.status(404).json({ reason: "Session not found" });
+app.get("/admin/session/:deviceId", async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT * FROM sessions WHERE device_id = $1`, [req.params.deviceId]);
+        if (result.rows.length === 0) return res.status(404).json({ reason: "Session not found" });
+        res.json(result.rows[0]);
+    } catch (err) {
+        console.error("[SERVER] Error fetching session:", err);
+        res.status(500).json({ reason: "Server error" });
+    }
 });
 
+async function cleanupSessions() {
+    try {
+        await pool.query(`DELETE FROM sessions`);
+        console.log("[SERVER] Cleaned up all device sessions from DB");
+    } catch (err) {
+        console.error("[SERVER] Failed to clean up sessions:", err);
+    }
+}
+
+// On normal exit
+process.on("exit", () => {
+    cleanupSessions();
+});
+
+// On Ctrl+C
+process.on("SIGINT", () => {
+    console.log("[SERVER] SIGINT received, cleaning up sessions...");
+    cleanupSessions().then(() => process.exit());
+});
+
+// On kill signal
+process.on("SIGTERM", () => {
+    console.log("[SERVER] SIGTERM received, cleaning up sessions...");
+    cleanupSessions().then(() => process.exit());
+});
+
+// On uncaught exceptions (optional)
+process.on("uncaughtException", (err) => {
+    console.error("[SERVER] Uncaught exception:", err);
+    cleanupSessions().then(() => process.exit(1));
+});
+
+
+
 // -----------------------------
-// WebSocket placeholders
+// WebSocket handlers
 // -----------------------------
-
-
-
 io.on("connection", (socket) => {
     console.log(`[SOCKET] New connection: ${socket.id}`);
 
-    // Device registration
-    socket.on("device_connect_to_dispatcher", (data) => {
+    socket.on("device_connect_to_dispatcher", async (data) => {
         const { deviceId } = data;
-        if (!deviceId) {
-            console.log(`[ERROR] Device tried to connect without an ID`);
-            return;
+        if (!deviceId) return console.log(`[ERROR] Device tried to connect without an ID`);
+
+        try {
+            await pool.query(
+                `INSERT INTO sessions (device_id, socket_id) VALUES ($1, $2)
+                 ON CONFLICT (device_id) DO UPDATE SET socket_id = EXCLUDED.socket_id, updated_at = NOW()`,
+                [deviceId, socket.id]
+            );
+            console.log(`[DEVICE CONNECTED] ${deviceId} on socket ${socket.id}`);
+            io.emit("device_connected", { deviceId });
+        } catch (err) {
+            console.error(`[SERVER ERROR] device_connect_to_dispatcher: ${err.message}`);
         }
-
-        // Add to sessions
-        sessions[deviceId] = {
-            socketId: socket.id,
-            interfaceId: null
-        };
-
-        console.log(`[DEVICE CONNECTED] ${deviceId} on socket ${socket.id}`);
-        printSessions();
-        io.emit("device_connected", { deviceId });
     });
 
-    // Interface connecting to a device
-    socket.on("interface_connect_to_device", (data) => {
-        const { deviceId, clientId } = data;
-        const session = sessions[deviceId];
-        if (!session) {
-            console.log(`[ERROR] Device ${deviceId} not connected`);
-            return;
+    socket.on("interface_connect_to_device", async (data) => {
+        const { interfaceId, connectionCode } = data;
+
+        // 🔹 Debug log to confirm the event is received
+        console.log(`[BROKER] interface_connect_to_device called: interfaceId=${interfaceId}, connectionCode=${connectionCode}`);
+
+        try {
+            // Look up the interface
+            const ifaceRes = await pool.query(
+                `SELECT i.interface_id, i.device_code, d.device_id, d.type
+             FROM interfaces i
+             LEFT JOIN devices d ON i.device_code = d.connection_code
+             WHERE i.interface_id = $1`,
+                [interfaceId]
+            );
+
+            if (ifaceRes.rows.length === 0) {
+                console.warn(`[BROKER] Interface ${interfaceId} not found in DB`);
+                return socket.emit("interface_connect_to_device_response", { error: true, message: "Interface not found" });
+            }
+
+            const iface = ifaceRes.rows[0];
+            console.log(`[BROKER] Found interface in DB: ${JSON.stringify(iface)}`);
+
+            // Check connection code matches
+            if (iface.device_code !== connectionCode) {
+                console.warn(`[BROKER] Connection code mismatch for interface=${interfaceId}, expected=${iface.device_code}, got=${connectionCode}`);
+                return socket.emit("interface_connect_to_device_response", { error: true, message: "Connection code mismatch" });
+            }
+
+            // Use the actual UUID device_id for sessions
+            const deviceId = iface.device_id; // UUID
+
+            // Check session exists
+            const sessionRes = await pool.query(`SELECT * FROM sessions WHERE device_id = $1`, [deviceId]);
+            if (sessionRes.rows.length === 0) {
+                console.warn(`[BROKER] Device ${deviceId} has no active session`);
+                return socket.emit("interface_connect_to_device_response", { error: true, message: `Device ${deviceId} not connected` });
+            }
+
+            // Update session
+            await pool.query(
+                `UPDATE sessions SET interface_id = $1, updated_at = NOW() WHERE device_id = $2`,
+                [interfaceId, deviceId]
+            );
+
+            console.log(`[BROKER] Linked interface ${interfaceId} to device ${deviceId}`);
+
+            socket.emit("interface_connect_to_device_response", {
+                deviceType: iface.type,
+                message: `Interface ${interfaceId} connected to device ${deviceId}`
+            });
+
+        } catch (err) {
+            console.error(`[SERVER ERROR] interface_connect_to_device: ${err.message}`);
+            socket.emit("interface_connect_to_device_response", { error: true, message: err.message });
         }
-
-        // Store the interfaceId in the session
-        session.interfaceId = clientId;
-
-        // Forward connection request to the device
-        io.to(session.socketId).emit("connect_client", { clientId });
-        console.log(`[INFO] Client ${clientId} connected to device ${deviceId}`);
-        printSessions();
     });
 
-    // Device disconnection
-    socket.on("disconnect", () => {
-    for (const [deviceId, session] of Object.entries(sessions)) {
-        if (session.socketId === socket.id) {
-            console.log(`[DEVICE DISCONNECTED] ${deviceId} (socket disconnect)`);
-            delete sessions[deviceId];
+    socket.on("interface_disconnect_from_dispatcher", async (data) => {
+        const { interfaceId } = data;
+
+        try {
+            const sessionRes = await pool.query(
+                `SELECT * FROM sessions WHERE interface_id = $1`,
+                [interfaceId]
+            );
+
+            if (sessionRes.rows.length === 0) {
+                return console.log(`[WARN] Interface ${interfaceId} not connected`);
+            }
+
+            const socketId = sessionRes.rows[0].socket_id;
+
+            // Notify the specific socket
+            io.to(socketId).emit("interface_disconnect_from_dispatcher", { interfaceId });
+
+            // ✅ Only unset interface_id instead of deleting the row
+            await pool.query(`UPDATE sessions SET interface_id = NULL WHERE interface_id = $1`, [interfaceId]);
+
+            // Broadcast to all clients that interface disconnected
+            io.emit("interface_disconnected", { interfaceId });
+
+            console.log(`[INTERFACE DISCONNECTED] ${interfaceId} (client requested)`);
+
+        } catch (err) {
+            console.error(`[SERVER ERROR] interface_disconnect_from_dispatcher: ${err.message}`);
+        }
+    });
+
+
+    socket.on("disconnect", async () => {
+        try {
+            const res = await pool.query(`SELECT device_id FROM sessions WHERE socket_id = $1`, [socket.id]);
+            for (const row of res.rows) {
+                await pool.query(`DELETE FROM sessions WHERE device_id = $1`, [row.device_id]);
+                io.emit("device_disconnected", { deviceId: row.device_id });
+                console.log(`[DEVICE DISCONNECTED] ${row.device_id} (socket disconnect)`);
+            }
+        } catch (err) {
+            console.error(`[SERVER ERROR] disconnect: ${err.message}`);
+        }
+    });
+
+    socket.on("device_disconnect_from_dispatcher", async (data) => {
+        const { deviceId } = data;
+        try {
+            const sessionRes = await pool.query(`SELECT * FROM sessions WHERE device_id = $1`, [deviceId]);
+            if (sessionRes.rows.length === 0) return console.log(`[WARN] Device ${deviceId} not connected`);
+
+            const socketId = sessionRes.rows[0].socket_id;
+            io.to(socketId).emit("device_disconnect_from_dispatcher", { deviceId });
+            await pool.query(`DELETE FROM sessions WHERE device_id = $1`, [deviceId]);
             io.emit("device_disconnected", { deviceId });
-        }
-    }
-    printSessions();
-});
-
- socket.on("device_disconnect_from_dispatcher", (data) => {
-        const { deviceId } = data;
-        const session = sessions[deviceId];
-        if (session && session.socketId) {
-            // Notify the device
-            io.to(session.socketId).emit("device_disconnect_from_dispatcher", { deviceId });
-            // Remove from sessions
-            delete sessions[deviceId];
             console.log(`[DEVICE DISCONNECTED] ${deviceId} (client requested)`);
-            io.emit("device_disconnected", { deviceId });
-            printSessions();
-        } else {
-            console.log(`[WARN] Device ${deviceId} not connected`);
+        } catch (err) {
+            console.error(`[SERVER ERROR] device_disconnect_from_dispatcher: ${err.message}`);
         }
     });
-
 });
-
-// Helper function to print all currently connected sessions
-// Helper function to print the number of currently connected sessions
-function printSessions() {
-    const count = Object.keys(sessions).length;
-    console.log(`[SESSIONS] Currently connected: ${count}`);
-}
-
 
 // -----------------------------
 // Start server

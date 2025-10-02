@@ -1,13 +1,13 @@
 // main.js
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const dotenv = require('dotenv');
-const http = require('http');
 const { URL } = require('url');
+const { io } = require('socket.io-client');
 
 dotenv.config(); // Load .env
 
-let mainWindow; // Reference to main window
+let mainWindow;
 
 // ------------------ CREATE WINDOWS ------------------
 function createWindow() {
@@ -50,12 +50,10 @@ function createMicroscopeWindow() {
 }
 
 // ------------------ GOOGLE OAUTH ------------------
-// ------------------ GOOGLE OAUTH INSIDE APP ------------------
 async function performGoogleOAuth() {
   return new Promise((resolve, reject) => {
     const authUrl = `${process.env.BROKER_URL}/auth/google`;
 
-    // Create a popup BrowserWindow for OAuth
     const oauthWindow = new BrowserWindow({
       width: 600,
       height: 800,
@@ -67,17 +65,16 @@ async function performGoogleOAuth() {
 
     oauthWindow.loadURL(authUrl);
 
-    // Detect navigation changes (to catch the redirect)
     oauthWindow.webContents.on('will-redirect', (event, url) => {
       if (url.startsWith('http://localhost:4000/auth/success')) {
-        event.preventDefault(); // stop default navigation
+        event.preventDefault();
 
         const urlObj = new URL(url);
         const token = urlObj.searchParams.get('token');
         const name = urlObj.searchParams.get('name');
         const email = urlObj.searchParams.get('email');
 
-        oauthWindow.close(); // close popup
+        oauthWindow.close();
 
         if (token && name) {
           resolve({ token, name, email });
@@ -93,6 +90,8 @@ async function performGoogleOAuth() {
   });
 }
 
+// ------------------ SOCKET.IO ------------------
+const socket = io('http://localhost:3000'); // Replace with your server URL
 
 // ------------------ APP EVENTS ------------------
 app.whenReady().then(() => {
@@ -119,9 +118,21 @@ ipcMain.on('open-microscope', () => {
 ipcMain.handle('google-login', async () => {
   try {
     const userData = await performGoogleOAuth();
-    return userData; // { token, name, email }
+    return userData;
   } catch (err) {
     console.error('Google login failed:', err);
     throw err;
   }
+});
+
+// ------------------ CONNECT TO DEVICE HANDLER ------------------
+ipcMain.handle('connect-to-device', async (event, { interfaceId, connectionCode }) => {
+  return new Promise((resolve, reject) => {
+    if (!interfaceId || !connectionCode) return reject(new Error('Missing interfaceId or connectionCode'));
+
+    // Emit to server and expect a callback
+    socket.emit('interface_connect_to_device', { interfaceId, connectionCode }, (response) => {
+      resolve(response); // forward response back to renderer
+    });
+  });
 });
