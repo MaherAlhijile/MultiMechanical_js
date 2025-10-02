@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Electron App</title>
+  <link rel="stylesheet" href="globalStyles.css">
+</head>
+
+<body>
+
+  <!-- Main select-mode panel -->
+  <div class="main-panel" id="mainPanel">
+    <h2 class="panel-title">Select Mode</h2>
+    <div class="panel">
+      <button class="mode-btn" id="offlineBtn">Offline</button>
+      <button class="mode-btn" id="onlineBtn" disabled>Online</button>
+    </div>
+  </div>
+
+  <!-- Device selection popup -->
+  <div class="device-popup" id="devicePopup">
+    <div class="device-content">
+      <span class="close-btn" id="closeDevice">&times;</span>
+      <h3 class="popup-title">Select a Device</h3>
+
+      <div class="device-cards">
+        <!-- Microscope card -->
+        <div class="device-card">
+          <h4>Microscope</h4>
+          <label><input type="radio" name="device" value="microscope-type1"> Type 1</label>
+          <label><input type="radio" name="device" value="microscope-type2"> Type 2</label>
+        </div>
+
+        <!-- Printer card -->
+        <div class="device-card">
+          <h4>Printer</h4>
+          <label><input type="radio" name="device" value="printer-type1"> Type 1</label>
+          <label><input type="radio" name="device" value="printer-type2"> Type 2</label>
+        </div>
+
+        <!-- Scanner card -->
+        <div class="device-card">
+          <h4>Scanner</h4>
+          <label><input type="radio" name="device" value="scanner-type1"> Type 1</label>
+          <label><input type="radio" name="device" value="scanner-type2"> Type 2</label>
+        </div>
+      </div>
+
+      <button id="selectDeviceBtn" class="primary-btn" disabled>Select</button>
+
+    </div>
+  </div>
+
+  <!-- Login popup -->
+  <div class="login-popup" id="loginPopup">
+    <div class="login-content">
+      <span class="close-btn" id="closeLogin">&times;</span>
+
+      <div class="login-cards">
+        <!-- Normal login card -->
+        <div class="login-card normal-login">
+          <h3 class="card-title">Login</h3>
+          <input type="text" placeholder="Username" id="username">
+          <input type="password" placeholder="Password" id="password">
+          <button id="loginBtn" class="primary-btn">Login</button>
+        </div>
+
+        <div class="or-divider"><span>OR</span></div>
+
+        <!-- Google login card -->
+        <div class="login-card google-login">
+          <button id="googleLoginBtn" class="google-btn">Login with Google</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Logged-in panel -->
+  <div class="app-panel" id="appPanel" style="display:none;">
+    <!-- Profile section -->
+
+    <div class="profile-section">
+
+      <h3 class="profile-title">Profile</h3>
+      <div class="profile-details">
+        <p id="profileName">User: <span id="usernameDisplay"></span></p>
+        <button id="logoutBtn" class="primary-btn logout-btn">Logout</button>
+      </div>
+    </div>
+
+    <!-- Devices section -->
+    <div class="devices-section">
+      <h3>Devices</h3>
+      <div class="device-cards-container" id="deviceCards">
+        <!-- Device cards will appear here -->
+      </div>
+      <button id="addDeviceBtn" class="primary-btn">Add Device</button>
+    </div>
+  </div>
+
+  <!-- Add Device Popup -->
+  <div class="add-device-popup" id="addDevicePopup">
+    <div class="add-device-content">
+      <span class="close-btn" id="closeAddDevice">&times;</span>
+      <h3>Add New Device</h3>
+      <form id="addDeviceForm">
+        <label>
+          Name:<br>
+          <input type="text" name="name" required>
+        </label>
+        <label>
+          Connection Code:<br>
+          <input type="text" name="Code" required>
+        </label>
+        <button type="submit" class="primary-btn">Add Device</button>
+      </form>
+    </div>
+  </div>
+
+
+  <script src="renderer.js"></script>
+
+</body>
+
+</html>

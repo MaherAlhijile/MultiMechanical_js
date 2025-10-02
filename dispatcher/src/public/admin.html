@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Broker Admin Page</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background-color: #f2f2f2; }
+    button { padding: 10px 16px; margin-bottom: 20px; cursor: pointer; }
+    button:hover { background: #eee; }
+  </style>
+</head>
+<body>
+
+  <h1>Broker Admin Page</h1>
+
+  <!-- DEVICES -->
+  <button onclick="loadDevices()">Load Devices</button>
+  <table id="devicesTable">
+    <thead>
+      <tr>
+        <th>ID</th><th>Type</th><th>IP</th><th>Port</th>
+        <th>Subnet</th><th>Public</th><th>Connection Code</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- INTERFACES -->
+  <button onclick="loadInterfaces()">Load Interfaces</button>
+  <table id="interfacesTable">
+    <thead>
+      <tr>
+        <th>ID</th><th>Name</th><th>Email</th><th>Device Code</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <!-- SESSIONS -->
+  <button onclick="loadSessions()">Load Sessions</button>
+  <table id="sessionsTable">
+    <thead>
+      <tr>
+        <th>Device ID</th><th>Full</th><th>Interface Email</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    // ⚠️ Adjust this if your backend routes are different (e.g. /api/admin)
+    const API_BASE = 'http://localhost:3000/admin';
+
+    async function loadDevices() {
+      try {
+        const res = await fetch(`${API_BASE}/devices`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const devices = await res.json();
+
+        const tbody = document.querySelector('#devicesTable tbody');
+        tbody.innerHTML = '';
+
+        devices.forEach(d => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${d.device_id}</td>
+            <td>${d.type}</td>
+            <td>${d.ip}</td>
+            <td>${d.port}</td>
+            <td>${d.subnet}</td>
+            <td>${d.public}</td>
+            <td>${d.connection_code}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Error loading devices:", err);
+        alert("Failed to load devices. Check console.");
+      }
+    }
+
+    async function loadInterfaces() {
+      try {
+        const res = await fetch(`${API_BASE}/interfaces`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const interfaces = await res.json();
+
+        const tbody = document.querySelector('#interfacesTable tbody');
+        tbody.innerHTML = '';
+
+        interfaces.forEach(i => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${i.interface_id}</td>
+            <td>${i.name}</td>
+            <td>${i.email}</td>
+            <td>${i.device_code}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Error loading interfaces:", err);
+        alert("Failed to load interfaces. Check console.");
+      }
+    }
+
+    async function loadSessions() {
+      try {
+        const res = await fetch(`${API_BASE}/sessions`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const sessions = await res.json();
+
+        const tbody = document.querySelector('#sessionsTable tbody');
+        tbody.innerHTML = '';
+
+        sessions.forEach(s => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${s.deviceId}</td>
+            <td>${s.full}</td>
+            <td>${s.interfaceEmail || ''}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error("Error loading sessions:", err);
+        alert("Failed to load sessions. Check console.");
+      }
+    }
+  </script>
+
+</body>
+</html>

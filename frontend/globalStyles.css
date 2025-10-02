@@ -1,0 +1,756 @@
+:root {
+  --primary_btn: #5c6ac4
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  /* disables scrolling */
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+  padding: 0;
+  margin: 0;
+
+  height: 100vh;
+  /* full viewport height */
+  display: flex;
+  justify-content: center;
+  /* horizontal centering */
+  align-items: flex-start;
+  /* align panel at top instead of center */
+  padding-top: 80px;
+  /* space from top, adjust as needed */
+
+  background: #f0f0f0;
+  /* optional background */
+  color: #333;
+}
+
+.main-panel {
+  display: flex;
+  flex-direction: column;
+  /* stack content vertically */
+  align-items: center;
+  /* center children horizontally */
+  justify-content: flex-start;
+  /* start from top */
+  width: 90%;
+  /* responsive width */
+  max-width: 400px;
+  /* optional max width */
+  margin-top: 25vh;
+  box-sizing: border-box;
+
+  text-align: center;
+}
+
+
+.panel-title {
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.panel {
+  display: inline-block;
+  padding: 20px 40px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff, #e6e6e6);
+  box-shadow: 6px 6px 12px #d1d1d1, -6px -6px 12px #ffffff;
+}
+
+.mode-btn {
+  padding: 12px 25px;
+  font-size: 16px;
+  margin: 5px;
+  cursor: pointer;
+  background-color: var(--primary_btn);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+/* Disabled state */
+.mode-btn:disabled {
+  background-color: #aaa;
+  /* gray when disabled */
+  color: #666;
+  cursor: not-allowed;
+  opacity: 0.6;
+  pointer-events: none;
+  /* disables hover + clicks */
+}
+
+.mode-btn:hover {
+  background-color: var(--primary_btn);
+  transform: translateY(-2px);
+}
+
+/* Popup common styles */
+.login-popup,
+.device-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+
+  overflow-y: hidden;
+  /* allow vertical scrolling if needed */
+  padding: 40px 20px;
+  /* spacing from edges */
+  box-sizing: border-box;
+
+  display: flex;
+  justify-content: center;
+  /* horizontal centering */
+  align-items: flex-start;
+  /* top alignment prevents drifting on narrow screens */
+
+  z-index: 1000;
+}
+
+
+
+.login-content,
+.device-content {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+
+  /* Responsive width */
+  width: 100%;
+  /* take full width of parent padding */
+  max-width: 360px;
+  /* max width */
+  box-sizing: border-box;
+
+  /* Scrollable if content is too tall */
+  max-height: 80vh;
+  overflow-y: auto;
+  margin: 0 auto;
+  /* horizontal centering */
+
+  /* Hide scrollbar for Firefox */
+  scrollbar-width: none;
+}
+
+/* Hide scrollbar in Chromium/Electron */
+.login-content::-webkit-scrollbar,
+.device-content::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+/* Close button */
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ff3b3b;
+}
+
+.primary-btn:disabled {
+  background-color: #ccc;
+  /* gray */
+  color: #666;
+  /* muted text */
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Login cards */
+.login-cards,
+.device-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-card,
+.device-card {
+  background: #f0f2f5;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 2px 2px 5px #d9d9d9, inset -2px -2px 5px #ffffff;
+}
+
+.card-title,
+.device-card h4,
+.popup-title {
+  margin: 0;
+  font-size: 16-18px;
+  color: #333;
+  text-align: center;
+}
+
+/* Inputs and buttons */
+.login-card input {
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 4px #007bff;
+}
+
+.primary-btn {
+  background-color: var(--primary_btn);
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.primary-btn:not(:disabled):hover {
+  background-color: var(--primary_btn);
+  transform: translateY(-2px);
+}
+
+.google-btn {
+  background-color: #db4437;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.google-btn:hover {
+  background-color: #c23321;
+  transform: translateY(-2px);
+}
+
+/* OR divider */
+.or-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  color: #777;
+  font-size: 14px;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #ccc;
+  margin: 0 10px;
+}
+
+/* Device cards labels */
+.device-card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+
+/* General body and panel */
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  text-align: center;
+  padding: 50px;
+  background: #f5f7fa;
+  color: #333;
+}
+
+.panel-title {
+  color: #555;
+  margin-bottom: 10px;
+}
+
+.panel {
+  display: inline-block;
+  padding: 20px 40px;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff, #e6e6e6);
+  box-shadow: 4px 4px 8px #d1d1d1, -4px -4px 8px #ffffff;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panel:hover {
+  transform: translateY(-1px) scale(1.005);
+  /* gentler lift + very slight scale */
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  /* softer shadow */
+}
+
+.mode-btn {
+  padding: 12px 25px;
+  font-size: 16px;
+  margin: 5px;
+  cursor: pointer;
+  background-color: var(--primary_btn);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  background-color: var(--primary_btn);
+  transform: translateY(-2px);
+}
+
+/* Popup common styles */
+.login-popup,
+.device-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.login-content,
+.device-content {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  width: 360px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.login-content:hover,
+.device-content:hover {
+  transform: scale(1.01);
+  /* slight zoom */
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.3);
+  /* deeper shadow */
+}
+
+
+/* Close button */
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 15px;
+  font-size: 24px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ff3b3b;
+}
+
+/* Login cards */
+.login-cards,
+.device-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.login-card,
+.device-card {
+  background: #f0f2f5;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: inset 2px 2px 5px #d9d9d9, inset -2px -2px 5px #ffffff;
+}
+
+.card-title,
+.device-card h4,
+.popup-title {
+  margin: 0;
+  font-size: 16-18px;
+  color: #333;
+  text-align: center;
+}
+
+/* Inputs and buttons */
+.login-card input {
+  padding: 10px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  outline: none;
+}
+
+.login-card input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 4px #007bff;
+}
+
+.primary-btn {
+  background-color: var(--primary_btn);
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+
+
+.google-btn {
+  background-color: #db4437;
+  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.google-btn:hover {
+  background-color: #c23321;
+  transform: translateY(-2px);
+}
+
+/* OR divider */
+.or-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  font-weight: bold;
+  color: #777;
+  font-size: 14px;
+}
+
+.or-divider::before,
+.or-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #ccc;
+  margin: 0 10px;
+}
+
+/* Device cards labels */
+.device-card label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+
+/* Make entire device popup scrollable if too tall */
+/* Scrollable device popup panel without visible scrollbar */
+/* Scrollable device popup panel without visible scrollbar */
+.device-content {
+  max-height: 80vh;
+  /* limits popup height */
+  overflow-y: auto;
+  /* allow vertical scrolling */
+  overflow-x: hidden;
+  /* prevent horizontal scroll */
+  scroll-behavior: smooth;
+  /* smooth scroll */
+  padding-right: 40px;
+  /* reserve space for hidden scrollbar */
+  box-sizing: content-box;
+  /* ensure padding doesn't shrink content */
+}
+
+/* Hide scrollbar for WebKit browsers */
+.device-content::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for Firefox */
+.device-content {
+  scrollbar-width: none;
+}
+
+
+
+
+.app-panel {
+  align-items: stretch;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 90%;
+  max-width: 800px;
+  height: 80vh;
+  margin: 40px auto;
+  padding: 30px;
+  box-sizing: border-box;
+
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+
+}
+
+.devices-section {
+  height: 400px; /* or any px value you want */
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #ccc;
+  padding: 20px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+
+
+.app-panel::-webkit-scrollbar {
+  width: 0;
+  /* Hide scrollbar in Chromium */
+  background: transparent;
+}
+
+
+
+.app-panel:hover {
+  transform: translateY(-4px) scale(1.02);
+  /* lift + slight scale */
+  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.18);
+}
+
+.profile-section {
+  flex: 0 0 auto;
+  /* fixed height based on content */
+}
+
+
+/* Profile details container */
+.profile-details {
+  display: flex;
+  flex-direction: row;
+  /* children side by side */
+  width: 100%;
+  /* container full width */
+  gap: 10px;
+  /* optional spacing between children */
+}
+
+/* Make children fill the available width */
+.profile-details>* {
+  flex: 1;
+  /* each child grows equally */
+  min-width: 0;
+  /* prevents overflow */
+}
+
+
+.device-cards-container {
+  flex: 1 1 auto;
+  /* fill available height inside devices-section */
+  min-height: 0;
+  /* allows flex shrinking */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  /* scroll if cards exceed height */
+}
+
+
+.add-device-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  /* semi-transparent overlay */
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.add-device-content {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 8px;
+
+  width: 90%;
+  /* responsive */
+  max-width: 300px;
+  /* maximum size */
+  box-sizing: border-box;
+  /* include padding in width */
+
+  display: flex;
+  flex-direction: column;
+
+  max-height: 70vh;
+  /* scroll if too tall */
+  overflow-y: auto;
+  scrollbar-width: none;
+  /* Firefox hidden scrollbar */
+  margin: 0 auto;
+  /* centers horizontally */
+}
+
+/* Chrome/Edge/Safari hidden scrollbar */
+.add-device-content::-webkit-scrollbar {
+  width: 0;
+  background: transparent;
+}
+
+
+
+.add-device-content label {
+  margin-bottom: 10px;
+}
+
+.add-device-content input {
+  width: 100%;
+  padding: 5px;
+  margin-top: 5px;
+  box-sizing: border-box;
+}
+
+.add-device-content .primary-btn {
+  margin-top: 10px;
+}
+
+
+/* Modern device card */
+.device-card {
+  background: linear-gradient(135deg, #ffffff, #f0f0f5);
+  /* subtle gradient */
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 15px;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: transform 0.3s, box-shadow 0.3s;
+  cursor: pointer;
+}
+
+/* Hover effect */
+.device-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+/* Device name */
+.device-name {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: #222;
+}
+
+/* Device details */
+.device-ip,
+.device-port,
+.device-location {
+  font-size: 14px;
+  margin: 0;
+  color: #555;
+  line-height: 1.4;
+}
+
+/* Optional: container for cards */
+.device-cards-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding: 10px;
+  height: 200px;
+  /* fixed height */
+  overflow-y: auto;
+  /* scroll when content exceeds height */
+  border: 1px solid #ddd;
+  box-sizing: border-box;
+  background-color: #fafafa;
+  /* optional background */
+}
+
+.device-card-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* Connect button */
+.connect-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #4CAF50;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.connect-btn:hover {
+  background-color: #45a049;
+  transform: translateY(-2px);
+}
+
+/* Delete button */
+.delete-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #f44336;
+  /* red button */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s, transform 0.2s;
+}
+
+.delete-btn:hover {
+  background-color: #e53935;
+  transform: translateY(-2px);
+}

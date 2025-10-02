@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Microscope GUI Web</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="microscope.css" />
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anek+Latin:wght@100..800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <div id="processingOverlay" style="display: none;">
+    <span>Processing<span id="dots"></span></span>
+    <div class="loader"></div>
+  </div>
+
+  <div class="page-wrapper">
+    <!-- row 1: toggle buttons -->
+
+
+
+
+
+    <!-- row 2: main content -->
+    <div class="container">
+      <!-- LEFT PANEL -->
+      <div class="left">
+
+
+        <!-- Popup 1 -->
+        <div class="popup" id="popup1" onclick="closePopup(event, 'popup1')">
+          <div class="popup-content" onclick="event.stopPropagation()">
+            <button class="close-btn" onclick="closePopupById('popup1')"></button>
+            <div class="popupHeader">
+              <h2 class="normalText">Microscope Parameters</h2>
+            </div>
+            <div class="popupGrid">
+              <div class="row">
+                <div class="field">
+                  <label for="wavelength" class="normalText">Wavelength (µm)</label>
+                  <input id="wavelength" type="number" min="0" value="0.650" step="0.001" />
+                </div>
+                <div class="field">
+                  <label for="magnification" class="normalText">Magnification</label>
+                  <input id="magnification" type="number" value="10" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="pixelSize" class="normalText">Camera Pixel Size (µm)</label>
+                  <input id="pixelSize" type="number" value="1.0" step="0.1" />
+                </div>
+                <div class="field">
+                  <label for="ri" class="normalText">RI Difference</label>
+                  <input id="ri" type="number" value="1" step="0.1" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="filterType" class="normalText">Filter Type</label>
+                  <select id="filterType">
+                    <option>circle</option>
+                    <option>square</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="filterSize" class="normalText">Filter Size (pixels)</label>
+                  <input id="filterSize" type="number" value="101" />
+                </div>
+              </div>
+              <div class="row">
+                <div class="field">
+                  <label for="beams" class="normalText">Number of beams</label>
+                  <select id="beams">
+                    <option>1 Beam</option>
+                    <option>2 Beams</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="skipPixels" class="normalText">Pixels not used in scanning</label>
+                  <input id="skipPixels" type="number" value="20" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
+
+        <div class="section" id="images">
+          <h2>Images</h2>
+          <div class="row">
+
+            <div class="output-images-vertical" id="outputImages">
+              <!-- Object Image -->
+              <div class="output-group">
+                <span id="objectLabel" class="normalText">None selected</span>
+                <div class="output-box" id="objectImageOutput">
+                  <span id="opjectImagePlaceholder" class="output-box-text">Object Image</span>
+
+                </div>
+                <label class="custom-file-upload mainBtn" for="imageFile">Load Object Image</label>
+                <input type="file" id="imageFile" accept="image/*" class="hiddenInputField">
+              </div>
+
+              <!-- Reference Image -->
+              <div class="output-group">
+                <span id="referenceLabel" class="normalText">None selected</span>
+                <div class="output-box" id="referenceImageOutput">
+                  <span id="referenceImagePlaceholder" class="output-box-text">Reference Image</span>
+                </div>
+                <label class="custom-file-upload mainBtn" for="refFile">Load Reference Image</label>
+                <input type="file" id="refFile" accept="image/*" class="hiddenInputField">
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+
+
+        <!-- Captured Output -->
+        <div class="capturedOutputContainer" id="capturedOutputContainer">
+          <h4 class="normalText">Captured Output</h4>
+          <div class="outputContainer" id="outputContainer">
+
+            <div class="output-group">
+              <div class="output-box" id="phaseOutput">
+                <span class="output-box-text">Phase Difference</span>
+              </div>
+              <button id="phaseDiff" type="button" class="mainBtn">Phase Difference</button>
+            </div>
+
+            <div class="output-group">
+              <div class="output-box" id="roiOutput">
+                <span id="xxx" class="output-box-text">Region of Interest</span>
+              </div>
+              <button id="selectRoiBtn" type="button" class="mainBtn">Select ROI</button>
+            </div>
+
+
+            <div class="output-group">
+              <div class="output-box" id="output3D">
+                <span class="output-box-text">3D</span>
+              </div>
+              <button id="3dbtn" class="mainBtn">3D profile</button>
+            </div>
+
+            <div class="output-group">
+              <div class="output-box" id="output1D">
+                <span class="output-box-text">1D</span>
+              </div>
+              <button id="1dbtn" class="mainBtn">1D profile</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+
+
+      <!-- RIGHT PANEL -->
+      <div class="right">
+        <div class="camAll">
+          <div class="camera-box">
+            <div id="cameraContainer" style="margin-top: 20px;">
+
+              <h3 class="normalText">Live Camera</h3>
+              <div class="cameraBox">
+
+                <div class="exposureContainer">
+                  <div class="exposureLabelContainer"> <label for="exposureInput" class="exposureLabel">Exposure
+                      (μs):</label>
+                  </div>
+                  <input type="number" id="exposureInput" value="150" step="10" />
+                  <button id="setExposureBtn">Set Exposure</button>
+                  <button onclick="openPopup('popup1')" class="mainBtn">Microscope Parameters</button>
+                </div>
+
+                <img id="cameraStream" src="../resources/no-cam.svg" style="max-width: 100%;" />
+              </div>
+
+              <div class="controls">
+
+                <button id="openCam" class="cameraButton">Open Camera</button>
+                <button id="stopCam" class="cameraButton">Stop Camera</button>
+                <!-- <button id="setExposureBtn">Set Exposure</button> -->
+                <button id="captureImageBtn" class="cameraButton">Capture Image</button>
+                <button id="captureRefernceBtn" class="cameraButton">Capture Reference</button>
+
+
+                <!-- <select id="captureType">
+                <option value="object">As Object</option>
+                <option value="reference">As Reference</option>
+              </select> -->
+              </div>
+
+
+            </div>
+
+
+
+            <!-- Directional pad -->
+            <div class="camStuff">
+              <div class="movment-container">
+                <div class="o-pad">
+                  <div class="square">
+                    <button id="top" class="dirctional-btn">
+                      <p id="topText">▲</p>
+                    </button>
+                    <button id="right" class="dirctional-btn">
+                      <p id="rightText">▶</p>
+                    </button>
+                    <button id="left" class="dirctional-btn">
+                      <p id="leftText">◀</p>
+                    </button>
+                    <button id="bottom" class="dirctional-btn">
+                      <p id="bottomText">▼</p>
+                    </button>
+                  </div>
+                  <button id="center">🏠︎</button>
+                  <div class="circle"></div>
+                </div>
+                <div class="focus-controls">
+                  <button id="focus" class="focusButton">▲</button>
+                  <div class="focus-div">Z <br> axis</div>
+                  <button id="unfocus" class="focusButton">▼</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- row 3: footer -->
+    <footer class="project-footer">
+      <h4 class="normalText">For Support Contact:</h4>
+      <p>
+        Maher Alhijile — <a href="mailto:maher.alhijile@gmail.com">maher.alhijile@gmail.com</a>
+        &nbsp;|&nbsp;
+        Jana Zakai — <a href="mailto:jana.zakai4@gmail.com">jana.zakai4@gmail.com</a>
+      </p>
+    </footer>
+
+  </div>
+
+  <script src="js/functions.js"></script>
+  <script src="js/display.js"></script>
+  <script src="js/camera.js"></script>
+  <script src="js/communication.js"></script>
+  <script src="js/motors.js"></script>
+
+
+
+
+
+
+
+</body>
+
+</html>
