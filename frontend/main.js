@@ -8,6 +8,7 @@ const { io } = require('socket.io-client');
 dotenv.config(); // Load .env
 
 let mainWindow;
+const connectedInterfaces = new Set();
 
 // ------------------ CREATE WINDOWS ------------------
 function createWindow() {
@@ -125,14 +126,37 @@ ipcMain.handle('google-login', async () => {
   }
 });
 
+
+
 // ------------------ CONNECT TO DEVICE HANDLER ------------------
 ipcMain.handle('connect-to-device', async (event, { interfaceId, connectionCode }) => {
   return new Promise((resolve, reject) => {
     if (!interfaceId || !connectionCode) return reject(new Error('Missing interfaceId or connectionCode'));
 
-    // Emit to server and expect a callback
     socket.emit('interface_connect_to_device', { interfaceId, connectionCode }, (response) => {
-      resolve(response); // forward response back to renderer
+      // Add interfaceId to the connected set
+      connectedInterfaces.add(interfaceId);
+      resolve(response);
     });
   });
+});
+
+
+// main.js
+
+// Add this somewhere after your other ipcMain handlers
+ipcMain.handle('disconnect-interface', async (event, { interfaceId }) => {
+  try {
+    if (!interfaceId) throw new Error('Missing interfaceId');
+    
+    console.log(`Disconnecting interface ${interfaceId} from renderer`);
+
+    // Emit to your server
+    socket.emit("interface_disconnect_from_dispatcher", { interfaceId });
+
+    return { success: true };
+  } catch (err) {
+    console.error('Disconnect failed:', err);
+    return { error: true, message: err.message };
+  }
 });

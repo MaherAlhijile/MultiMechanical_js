@@ -38,6 +38,7 @@ app.use(cors({
     credentials: true
 }));
 
+
 const io = new Server(httpServer, { cors: { origin: "*" } });
 
 app.get("/admin", (req, res) => {
@@ -392,36 +393,34 @@ io.on("connection", (socket) => {
         }
     });
 
-    socket.on("interface_disconnect_from_dispatcher", async (data) => {
-        const { interfaceId } = data;
+   socket.on("interface_disconnect_from_dispatcher", async (data, callback) => {
+    const { interfaceId } = data;
 
-        try {
-            const sessionRes = await pool.query(
-                `SELECT * FROM sessions WHERE interface_id = $1`,
-                [interfaceId]
-            );
+    try {
+        const sessionRes = await pool.query(
+            `SELECT * FROM sessions WHERE interface_id = $1`,
+            [interfaceId]
+        );
 
-            if (sessionRes.rows.length === 0) {
-                return console.log(`[WARN] Interface ${interfaceId} not connected`);
-            }
-
+        if (sessionRes.rows.length === 0) {
+            console.log(`[WARN] Interface ${interfaceId} not connected`);
+        } else {
             const socketId = sessionRes.rows[0].socket_id;
-
-            // Notify the specific socket
             io.to(socketId).emit("interface_disconnect_from_dispatcher", { interfaceId });
-
-            // ✅ Only unset interface_id instead of deleting the row
             await pool.query(`UPDATE sessions SET interface_id = NULL WHERE interface_id = $1`, [interfaceId]);
-
-            // Broadcast to all clients that interface disconnected
             io.emit("interface_disconnected", { interfaceId });
-
             console.log(`[INTERFACE DISCONNECTED] ${interfaceId} (client requested)`);
-
-        } catch (err) {
-            console.error(`[SERVER ERROR] interface_disconnect_from_dispatcher: ${err.message}`);
         }
-    });
+
+        // ✅ Call the callback to acknowledge
+        if (callback) callback({ success: true });
+
+    } catch (err) {
+        console.error(`[SERVER ERROR] interface_disconnect_from_dispatcher: ${err.message}`);
+        if (callback) callback({ success: false, error: err.message });
+    }
+});
+
 
 
     socket.on("disconnect", async () => {

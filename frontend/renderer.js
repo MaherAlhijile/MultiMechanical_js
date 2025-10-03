@@ -40,7 +40,7 @@ async function checkServer() {
   }
 }
 checkServer();
-setInterval(checkServer, 5000);
+setInterval(checkServer, 1000);
 
 // ---------------- DEVICE RADIO SELECTION ----------------
 deviceRadios.forEach(radio => {
@@ -179,7 +179,6 @@ function createDeviceCard(i) {
   const card = document.createElement('div');
   card.className = 'device-card';
 
-  // ✅ Assign dataset for interfaceId and connectionCode
   card.dataset.deviceId = i.interface_id;
   card.dataset.connectionCode = i.device_code;
 
@@ -191,96 +190,83 @@ function createDeviceCard(i) {
       <button class="connect-btn">Connect</button>
       <button class="delete-btn">Delete</button>
     </div>
-          <button class="start-btn" disabled>Start</button>
-
+    <button class="start-btn" disabled>Start</button>
   `;
 
+  const connectBtn = card.querySelector('.connect-btn');
+
   // ---------------- INTERFACE SESSION WATCHER ----------------
-async function watchInterfaceSessions() {
-  try {
-    console.log("[WATCH] Checking sessions table...");
-    const res = await fetch('http://localhost:3000/admin/sessions'); // your sessions endpoint
-    if (!res.ok) {
-      console.error("[WATCH] Failed to fetch sessions:", res.status, res.statusText);
-      return;
-    }
+  async function watchInterfaceSessions() {
+    try {
+      const res = await fetch('http://localhost:3000/admin/sessions');
+      if (!res.ok) return;
 
-    const sessions = await res.json();
-    console.log("[WATCH] Sessions fetched:", sessions);
+      const sessions = await res.json();
+      const activeInterfaceIds = sessions.filter(s => s.interface_id).map(s => s.interface_id);
 
-    const activeInterfaceIds = sessions
-      .filter(s => s.interface_id)       // only sessions with interface_id
-      .map(s => s.interface_id);
+      const cards = document.querySelectorAll('.device-card');
+      cards.forEach(card => {
+        const startBtn = card.querySelector('.start-btn');
+        const btn = card.querySelector('.connect-btn'); // <--- check existence
+        const interfaceId = card.dataset.deviceId;
 
-    console.log("[WATCH] Active interface IDs:", activeInterfaceIds);
+        if (startBtn) startBtn.disabled = !activeInterfaceIds.includes(interfaceId);
 
-    // Iterate over all device cards
-    const cards = document.querySelectorAll('.device-card');
-    cards.forEach(card => {
-      const startBtn = card.querySelector('.start-btn');
-      const interfaceId = card.dataset.deviceId;
-
-      if (startBtn) {
-        if (activeInterfaceIds.includes(interfaceId)) {
-          if (startBtn.disabled) {
-            console.log(`[WATCH] Enabling start button for interface ${interfaceId}`);
+        if (btn) { // ✅ Only update if button exists
+          if (activeInterfaceIds.includes(interfaceId)) {
+            btn.textContent = 'Disconnect';
+            btn.style.backgroundColor = 'red';
+          } else {
+            btn.textContent = 'Connect';
+            btn.style.backgroundColor = '';
           }
-          startBtn.disabled = false; // enable if active
-        } else {
-          if (!startBtn.disabled) {
-            console.log(`[WATCH] Disabling start button for interface ${interfaceId}`);
-          }
-          startBtn.disabled = true; // disable if not active
         }
-      }
-    });
+      });
 
-  } catch (err) {
-    console.error("[WATCH] Error checking interface sessions:", err);
+    } catch (err) {
+      console.error("[WATCH] Error checking sessions:", err);
+    }
   }
-}
 
-// Start polling every 5 seconds
-setInterval(watchInterfaceSessions, 5000);
+  setInterval(watchInterfaceSessions, 5000);
 
-
-  // --- Connect Button ---
-  card.querySelector('.connect-btn').addEventListener('click', async () => {
+  // ---------------- Connect Button Click ----------------
+  connectBtn.addEventListener('click', async () => {
     const interfaceId = card.dataset.deviceId;
     const connectionCode = card.dataset.connectionCode;
 
-    console.log("Connecting interface:", interfaceId, "with code:", connectionCode);
-
-    try {
-      const data = await window.electronAPI.invoke('connect-to-device', { interfaceId, connectionCode });
-
-      if (data.error) {
-        alert(`Connection failed: ${data.message}`);
-        return;
+    if (connectBtn.textContent === 'Connect') {
+      // ✅ Connect
+      try {
+        const data = await window.electronAPI.invoke('connect-to-device', { interfaceId, connectionCode });
+        if (data.error) {
+          alert(`Connection failed: ${data.message}`);
+          return;
+        }
+        console.log(`Connected interface ${interfaceId}`);
+      } catch (err) {
+        console.error('Failed to connect:', err);
+        alert('Failed to connect. See console.');
       }
-
-      const message = `Device type: ${data.deviceType}`;
-      console.log(message);
-
-      let msgDiv = card.querySelector('.message');
-      if (!msgDiv) {
-        msgDiv = document.createElement('div');
-        msgDiv.classList.add('message');
-        card.appendChild(msgDiv);
+    } else if (connectBtn.textContent === 'Disconnect') {
+      // ✅ Disconnect
+      try {
+        await window.electronAPI.invoke('disconnect-interface', { interfaceId });
+        console.log(`Disconnected interface ${interfaceId}`);
+      } catch (err) {
+        console.error('Failed to disconnect:', err);
+        alert('Failed to disconnect. See console.');
       }
-      msgDiv.textContent = message;
-
-    } catch (err) {
-      console.error('Failed to connect to device:', err);
-      alert('Failed to connect to device. See console.');
     }
   });
 
-    card.querySelector('.start-btn').addEventListener('click', () => {
+
+  // ---------------- Start Button ----------------
+  card.querySelector('.start-btn').addEventListener('click', () => {
     window.electronAPI.send('open-microscope');
   });
 
-  // --- Delete Button ---
+  // ---------------- Delete Button ----------------
   card.querySelector('.delete-btn').addEventListener('click', async () => {
     if (confirm(`Delete interface ${i.interface_id}?`)) {
       try {
@@ -295,11 +281,8 @@ setInterval(watchInterfaceSessions, 5000);
     }
   });
 
-  
-
   return card;
 }
-
 
 // ---------------- LOGOUT ----------------
 logoutBtn.addEventListener('click', () => {
